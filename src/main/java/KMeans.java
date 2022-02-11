@@ -28,7 +28,10 @@ public class KMeans {
             String centroidGson = context.getConfiguration().get("centroids");
             Gson gson = new Gson();
             centroids = gson.fromJson(centroidGson, Center[].class);
-
+            for(Center center : centroids) {
+                // writes out each centroid with dummy values, so the centroids don't disappear
+                context.write(new Text(center.toString()), new Text("-1,-1"));
+            }
         }
 
         public void map(Object key, Text value, Context context
@@ -41,8 +44,11 @@ public class KMeans {
             Center closestCenter = null;
             double smallestValue = Integer.MAX_VALUE;
             for (Center center : centroids) {
-                if(center.proximityToCenter(x, y) < smallestValue)
+                double proximity = center.proximityToCenter(x, y);
+                if(proximity < smallestValue) {
                     closestCenter = center;
+                    smallestValue = proximity;
+                }
             }
 
             context.write(new Text(closestCenter.toString()), value);
@@ -54,22 +60,27 @@ public class KMeans {
 
     public static class KMeansReducer
             extends Reducer<Text,Text,Text,Text> {
-        // List of Centers
 
         @Override
         protected void reduce(Text key, Iterable<Text> values, Reducer<Text, Text, Text, Text>.Context context) throws IOException, InterruptedException {
-            // find new center for cluster
-            // average all xs
-            // average all ys
+            // find new center for cluster, new center is average all xs w/ average of all ys
             int sumX, sumY, count;
             sumX = sumY = count = 0;
             for(Text coordinate : values) {
                 String[] xAndY = coordinate.toString().split(",");
-                sumX += Integer.parseInt(xAndY[0]);
-                sumY += Integer.parseInt(xAndY[1]);
-                count++;
+                int curX = Integer.parseInt(xAndY[0]);
+                int curY = Integer.parseInt(xAndY[1]);
+
+                if(curX != -1) { // ensures that the current value is not a dummy value writen during setup
+                    sumX += curX;
+                    sumY += curY;
+                    count++;
+                }
             }
-            Text newCenter = new Text((sumX / count) + "," + (sumY / count));
+            Text newCenter;
+            if(sumX == 0) newCenter = key;
+            else newCenter = new Text((sumX / count) + "," + (sumY / count));
+
             context.write(key,newCenter);
 
         }
@@ -87,6 +98,7 @@ public class KMeans {
         BufferedReader reader = new BufferedReader(new FileReader(args[1]));
         String file = reader.lines().reduce((total, line) -> total + "\n" + line).get();
         String[] centers = file.split("\n");
+
 
         for(String center : centers) {
             String[] xAndY = center.split(",");
@@ -109,7 +121,7 @@ public class KMeans {
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
 
-        FileInputFormat.addInputPath(job, new Path(args[1]));
+        FileInputFormat.addInputPath(job, new Path(args[0]));
         FileOutputFormat.setOutputPath(job, new Path(args[2]));
         job.waitForCompletion(true);
 
