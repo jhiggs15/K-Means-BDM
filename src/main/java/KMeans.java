@@ -95,66 +95,29 @@ public class KMeans {
     //              arg 3 cannot have any periods in path
     // args [3]  : number of iterations
     public static void main(String[] args) throws Exception {
-        String centroids = getSerializedCenters(args[1]);
+        String centroids = CommonFunctionality.getSerializedCenters(args[1]);
         int numberOfIterations = args.length > 3 ? Integer.parseInt(args[3]) : 1;
 
         for (int r = 1; r <= numberOfIterations; r++) {
             Job KMeanJob;
             if(r == 1) {
-                KMeanJob = createKMeansJob(
+                KMeanJob = CommonFunctionality.createKMeansJob(
                         args[0],
                         args[2] + r,
-                        centroids);
+                        centroids,
+                        KMeansMapper.class, Text.class, KMeansReducer.class);
             }
             else {
-                KMeanJob = createKMeansJob(
+                KMeanJob = CommonFunctionality.createKMeansJob(
                         args[0],
                         args[2] + r,
-                        getSerializedCenters(args[2] + (r - 1 + "/part-r-00000")) );
+                        CommonFunctionality.getSerializedCenters(args[2] + (r - 1 + "/part-r-00000")),
+                        KMeansConvergence.KMeansMapper.class, Text.class, KMeansConvergence.KMeansReducer.class);
             }
 
             KMeanJob.waitForCompletion(true);
         }
     }
 
-    public static Job createKMeansJob(String inputFile, String outputFile, String searlizedCenters) throws IOException {
-        Configuration conf = new Configuration();
-        conf.setStrings("centroids", searlizedCenters);
-        Job job = Job.getInstance(conf, "K-Means");
-        job.setJarByClass(KMeans.class);
-        job.setMapperClass(KMeansMapper.class);
-        job.setMapOutputKeyClass(Text.class);
-        job.setMapOutputValueClass(Text.class);
 
-        job.setReducerClass(KMeansReducer.class);
-        job.setOutputKeyClass(Text.class);
-        job.setOutputValueClass(Text.class);
-
-        FileInputFormat.addInputPath(job, new Path(inputFile));
-        FileOutputFormat.setOutputPath(job, new Path(outputFile));
-
-        return job;
-    }
-
-    public static String getSerializedCenters(String filename) throws FileNotFoundException {
-        Gson gson = new Gson();
-        return gson.toJson(getCenters(filename));
-    }
-
-    public static List<Center> getCenters(String filename) throws FileNotFoundException {
-        List<Center> listOfCenters = new ArrayList<>();
-
-        BufferedReader reader = new BufferedReader(new FileReader(filename));
-        String file = reader.lines().reduce((total, line) -> total + "\n" + line).get();
-        String[] centers = file.replaceAll("\t", ",").split("\n");
-
-        for(String center : centers) {
-            String[] xAndY = center.split(",");
-            int x = Integer.parseInt(xAndY[0]), y = Integer.parseInt(xAndY[1]);
-            listOfCenters.add(new Center(x, y));
-        }
-
-        return listOfCenters;
-
-    }
 }

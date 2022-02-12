@@ -12,110 +12,13 @@ import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
 import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-    public class KMeansOptimizedConvergence {
-
-            // adapted from http://hadooptutorial.info/creating-custom-hadoop-writable-data-type/
-        public static class CoordinateAverage implements WritableComparable<CoordinateAverage> {
-            private IntWritable sumOfX;
-            private IntWritable sumOfY;
-            private IntWritable numberOfPoints;
-            private BooleanWritable isOnlyValue;
-
-
-            //Default Constructor
-            public CoordinateAverage()
-            {
-                this.sumOfX = new IntWritable();
-                this.sumOfY = new IntWritable();
-                this.numberOfPoints = new IntWritable();
-                this.isOnlyValue = new BooleanWritable();
-                this.isOnlyValue.set(true);
-            }
-
-            public CoordinateAverage(int x, int y)
-            {
-                this.sumOfX = new IntWritable();
-                this.sumOfY = new IntWritable();
-                this.numberOfPoints = new IntWritable();
-                this.isOnlyValue = new BooleanWritable();
-                update(x, y);
-            }
-
-            public void merge(CoordinateAverage otherCoordinate) {
-                this.isOnlyValue.set(false);
-                sumOfX.set(this.sumOfX.get() + otherCoordinate.sumOfX.get());
-                sumOfY.set(this.sumOfY.get() + otherCoordinate.sumOfY.get());
-                numberOfPoints.set(this.numberOfPoints.get() + otherCoordinate.numberOfPoints.get());
-
-            }
-
-            public void update(int x, int y) {
-                this.isOnlyValue.set(false);
-                sumOfX.set(sumOfX.get() + x);
-                sumOfY.set(sumOfY.get() + y);
-                numberOfPoints.set(numberOfPoints.get() + 1);
-            }
-
-            public int getAverageX() {
-                return sumOfX.get() / numberOfPoints.get();
-            }
-
-            public int getAverageY() {
-                return sumOfY.get() / numberOfPoints.get();
-            }
-
-            public boolean getIsOnlyValue() {
-                return isOnlyValue.get();
-            }
-
-            @Override
-            //overriding default readFields method.
-            //It de-serializes the byte stream data
-            public void readFields(DataInput in) throws IOException {
-                sumOfX.readFields(in);
-                sumOfY.readFields(in);
-                numberOfPoints.readFields(in);
-                isOnlyValue.readFields(in);
-            }
-            @Override
-            //It serializes object data into byte stream data
-            public void write(DataOutput out) throws IOException {
-                sumOfX.write(out);
-                sumOfY.write(out);
-                numberOfPoints.write(out);
-                isOnlyValue.write(out);
-            }
-            // do not think we will need
-            @Override
-            public int compareTo(CoordinateAverage o)
-            {
-                return -1;
-            }
-
-            @Override
-            public boolean equals(Object o) {
-                if (o instanceof CoordinateAverage)
-                {
-                    CoordinateAverage other = (CoordinateAverage) o;
-                    return sumOfX.get() == other.sumOfX.get()
-                            && sumOfY.get() == other.sumOfY.get() && numberOfPoints.get() == other.numberOfPoints.get();
-                }
-                return false;
-            }
-
-            @Override
-            public int hashCode()
-            {
-                return Objects.hash(sumOfX, sumOfY, numberOfPoints);
-            }
-        }
+    public class KMeansOptimizedConvergenceMessage {
 
         public static class KMeansMapper
                 extends Mapper<Object, Text, Text, CoordinateAverage> {
@@ -200,24 +103,27 @@ import java.util.Objects;
         //              arg 3 cannot have any periods in path
         // args [3]  : number of iterations
         public static void main(String[] args) throws Exception {
-            String centroids = getSerializedCenters(args[1]);
+            String centroids = CommonFunctionality.getSerializedCenters(args[1]);
             int numberOfIterations = args.length > 3 ? Integer.parseInt(args[3]) : 1;
 
             for (int r = 1; r <= numberOfIterations; r++) {
                 Job KMeanJob;
                 if(r == 1) {
-                    KMeanJob = createKMeansJob(
+                    KMeanJob = CommonFunctionality.createKMeansJobWithCombiner(
                             args[0],
                             args[2] + r,
-                            centroids);
+                            centroids,
+                            KMeansOptimized.KMeansMapper.class, CoordinateAverage.class, KMeansOptimized.KMeansReducer.class, KMeansOptimized.KMeansCombiner.class);
+
                     KMeanJob.waitForCompletion(true);
                 }
                 else {
-                    String lastIterationsCenters = getSerializedCenters(args[2] + (r - 1 + "/part-r-00000"));
-                    KMeanJob = createKMeansJob(
+                    String lastIterationsCenters = CommonFunctionality.getSerializedCenters(args[2] + (r - 1 + "/part-r-00000"));
+                    KMeanJob = CommonFunctionality.createKMeansJobWithCombiner(
                             args[0],
                             args[2] + r,
-                            lastIterationsCenters);
+                            lastIterationsCenters,
+                            KMeansOptimized.KMeansMapper.class, CoordinateAverage.class, KMeansOptimized.KMeansReducer.class, KMeansOptimized.KMeansCombiner.class);
 
                     KMeanJob.waitForCompletion(true);
 
@@ -231,7 +137,7 @@ import java.util.Objects;
             // the last file we wrote to was outputfile+(r-1)
             // new file we wrote to was outputfile+r
 
-            String[] centers = seperateCentersFromFile(outputfile + r + "/part-r-00000");
+            String[] centers = CommonFunctionality.seperateCentersFromFile(outputfile + r + "/part-r-00000");
             for(String center : centers) {
                 String[] currentCenters = center.split(",");
                 int newCenterX = Integer.parseInt(currentCenters[0]);
@@ -267,7 +173,7 @@ import java.util.Objects;
             Configuration conf = new Configuration();
             conf.setStrings("centroids", searlizedCenters);
             Job job = Job.getInstance(conf, "K-Means");
-            job.setJarByClass(KMeansOptimizedConvergence.class);
+            job.setJarByClass(KMeansOptimizedConvergenceMessage.class);
             job.setMapperClass(KMeansMapper.class);
             job.setMapOutputKeyClass(Text.class);
             job.setMapOutputValueClass(CoordinateAverage.class);
@@ -283,37 +189,5 @@ import java.util.Objects;
             FileOutputFormat.setOutputPath(job, new Path(outputFile));
 
             return job;
-        }
-
-        public static String[] seperateCentersFromFile(String filename) throws FileNotFoundException {
-            BufferedReader reader = new BufferedReader(new FileReader(filename));
-            String file = reader.lines().reduce((total, line) -> total + "\n" + line).get();
-            String[] centers = file.replaceAll("\t", ",").split("\n");
-            return centers;
-        }
-
-        public static String getSerializedCenters(String filename) throws FileNotFoundException {
-            Gson gson = new Gson();
-            return gson.toJson(getCenters(filename));
-        }
-
-        public static List<Center> getCenters(String filename) throws FileNotFoundException {
-            List<Center> listOfCenters = new ArrayList<>();
-
-            BufferedReader reader = new BufferedReader(new FileReader(filename));
-            String file = reader.lines().reduce((total, line) -> total + "\n" + line).get();
-            String[] centers = file.replaceAll("\t", ",").split("\n");
-
-            for(String center : centers) {
-                String[] xAndY = center.split(",");
-                if(xAndY.length != 1) {
-                    int x = Integer.parseInt(xAndY[0]), y = Integer.parseInt(xAndY[1]);
-                    listOfCenters.add(new Center(x, y));
-                }
-
-            }
-
-            return listOfCenters;
-
         }
     }

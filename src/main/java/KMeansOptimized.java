@@ -18,102 +18,6 @@ import java.util.List;
 
 public class KMeansOptimized {
 
-        // adapted from http://hadooptutorial.info/creating-custom-hadoop-writable-data-type/
-    public static class CoordinateAverage implements WritableComparable<CoordinateAverage> {
-        private IntWritable sumOfX;
-        private IntWritable sumOfY;
-        private IntWritable numberOfPoints;
-        private BooleanWritable isOnlyValue;
-
-
-        //Default Constructor
-        public CoordinateAverage()
-        {
-            this.sumOfX = new IntWritable();
-            this.sumOfY = new IntWritable();
-            this.numberOfPoints = new IntWritable();
-            this.isOnlyValue = new BooleanWritable();
-            this.isOnlyValue.set(true);
-        }
-
-        public CoordinateAverage(int x, int y)
-        {
-            this.sumOfX = new IntWritable();
-            this.sumOfY = new IntWritable();
-            this.numberOfPoints = new IntWritable();
-            this.isOnlyValue = new BooleanWritable();
-            update(x, y);
-        }
-
-        public void merge(CoordinateAverage otherCoordinate) {
-            this.isOnlyValue.set(false);
-            sumOfX.set(this.sumOfX.get() + otherCoordinate.sumOfX.get());
-            sumOfY.set(this.sumOfY.get() + otherCoordinate.sumOfY.get());
-            numberOfPoints.set(this.numberOfPoints.get() + otherCoordinate.numberOfPoints.get());
-
-        }
-
-        public void update(int x, int y) {
-            this.isOnlyValue.set(false);
-            sumOfX.set(sumOfX.get() + x);
-            sumOfY.set(sumOfY.get() + y);
-            numberOfPoints.set(numberOfPoints.get() + 1);
-        }
-
-        public int getAverageX() {
-            return sumOfX.get() / numberOfPoints.get();
-        }
-
-        public int getAverageY() {
-            return sumOfY.get() / numberOfPoints.get();
-        }
-
-        public boolean getIsOnlyValue() {
-            return isOnlyValue.get();
-        }
-
-        @Override
-        //overriding default readFields method.
-        //It de-serializes the byte stream data
-        public void readFields(DataInput in) throws IOException {
-            sumOfX.readFields(in);
-            sumOfY.readFields(in);
-            numberOfPoints.readFields(in);
-            isOnlyValue.readFields(in);
-        }
-        @Override
-        //It serializes object data into byte stream data
-        public void write(DataOutput out) throws IOException {
-            sumOfX.write(out);
-            sumOfY.write(out);
-            numberOfPoints.write(out);
-            isOnlyValue.write(out);
-        }
-        // do not think we will need
-        @Override
-        public int compareTo(CoordinateAverage o)
-        {
-            return -1;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (o instanceof CoordinateAverage)
-            {
-                CoordinateAverage other = (CoordinateAverage) o;
-                return sumOfX.get() == other.sumOfX.get()
-                        && sumOfY.get() == other.sumOfY.get() && numberOfPoints.get() == other.numberOfPoints.get();
-            }
-            return false;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(sumOfX, sumOfY, numberOfPoints);
-        }
-    }
-
     public static class KMeansMapper
             extends Mapper<Object, Text, Text, CoordinateAverage> {
 
@@ -197,68 +101,28 @@ public class KMeansOptimized {
     //              arg 3 cannot have any periods in path
     // args [3]  : number of iterations
     public static void main(String[] args) throws Exception {
-        String centroids = getSerializedCenters(args[1]);
+        String centroids = CommonFunctionality.getSerializedCenters(args[1]);
         int numberOfIterations = args.length > 3 ? Integer.parseInt(args[3]) : 1;
 
         for (int r = 1; r <= numberOfIterations; r++) {
             Job KMeanJob;
             if(r == 1) {
-                KMeanJob = createKMeansJob(
+                KMeanJob = CommonFunctionality.createKMeansJobWithCombiner(
                         args[0],
                         args[2] + r,
-                        centroids);
+                        centroids,
+                        KMeansMapper.class, CoordinateAverage.class, KMeansReducer.class, KMeansCombiner.class);
             }
             else {
-                KMeanJob = createKMeansJob(
+                KMeanJob = CommonFunctionality.createKMeansJobWithCombiner(
                         args[0],
                         args[2] + r,
-                        getSerializedCenters(args[2] + (r - 1 + "/part-r-00000")) );
+                        CommonFunctionality.getSerializedCenters(args[2] + (r - 1 + "/part-r-00000")),
+                        KMeansMapper.class, CoordinateAverage.class, KMeansReducer.class, KMeansCombiner.class);
             }
 
             KMeanJob.waitForCompletion(true);
         }
     }
 
-    public static Job createKMeansJob(String inputFile, String outputFile, String searlizedCenters) throws IOException {
-        Configuration conf = new Configuration();
-        conf.setStrings("centroids", searlizedCenters);
-        Job job = Job.getInstance(conf, "K-Means");
-        job.setJarByClass(KMeansOptimized.class);
-        job.setMapperClass(KMeansMapper.class);
-        job.setMapOutputKeyClass(Text.class);
-        job.setMapOutputValueClass(CoordinateAverage.class);
-
-        job.setCombinerClass(KMeansCombiner.class);
-
-        job.setReducerClass(KMeansReducer.class);
-        job.setOutputKeyClass(Text.class);
-        job.setOutputValueClass(Text.class);
-
-        FileInputFormat.addInputPath(job, new Path(inputFile));
-        FileOutputFormat.setOutputPath(job, new Path(outputFile));
-
-        return job;
-    }
-
-    public static String getSerializedCenters(String filename) throws FileNotFoundException {
-        Gson gson = new Gson();
-        return gson.toJson(getCenters(filename));
-    }
-
-    public static List<Center> getCenters(String filename) throws FileNotFoundException {
-        List<Center> listOfCenters = new ArrayList<>();
-
-        BufferedReader reader = new BufferedReader(new FileReader(filename));
-        String file = reader.lines().reduce((total, line) -> total + "\n" + line).get();
-        String[] centers = file.replaceAll("\t", ",").split("\n");
-
-        for(String center : centers) {
-            String[] xAndY = center.split(",");
-            int x = Integer.parseInt(xAndY[0]), y = Integer.parseInt(xAndY[1]);
-            listOfCenters.add(new Center(x, y));
-        }
-
-        return listOfCenters;
-
-    }
 }
