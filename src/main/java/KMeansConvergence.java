@@ -1,13 +1,12 @@
+import com.google.gson.Gson;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
-import com.google.gson.Gson;
 
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
@@ -16,7 +15,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-public class KMeans {
+public class KMeansConvergence {
 
     public static class KMeansMapper
             extends Mapper<Object, Text, Text, Text> {
@@ -105,23 +104,56 @@ public class KMeans {
                         args[0],
                         args[2] + r,
                         centroids);
+                KMeanJob.waitForCompletion(true);
+
             }
             else {
+                String lastIterationsCenters = getSerializedCenters(args[2] + (r - 1 + "/part-r-00000"));
                 KMeanJob = createKMeansJob(
                         args[0],
                         args[2] + r,
-                        getSerializedCenters(args[2] + (r - 1 + "/part-r-00000")) );
+                        lastIterationsCenters);
+
+                KMeanJob.waitForCompletion(true);
+                if(allHaveChangedSignificantly(args[2], r)) continue;
+                else break;
+
             }
 
-            KMeanJob.waitForCompletion(true);
+
+
         }
+    }
+
+    private static boolean allHaveChangedSignificantly(String outputfile, int r) throws FileNotFoundException {
+        // the last file we wrote to was outputfile+(r-1)
+        // new file we wrote to was outputfile+r
+
+        String[] centers = seperateCentersFromFile(outputfile + r + "/part-r-00000");
+        for(String center : centers) {
+            String[] currentCenters = center.split(",");
+            int newCenterX = Integer.parseInt(currentCenters[0]);
+            int newCenterY = Integer.parseInt(currentCenters[1]);
+            int oldCenterX = Integer.parseInt(currentCenters[2]);
+            int oldCenterY = Integer.parseInt(currentCenters[3]);
+
+            if(Math.abs(newCenterX - oldCenterX) < 100 ||
+                    Math.abs(newCenterY - oldCenterY) < 100)
+                return false;
+
+        }
+
+        return true;
+
+
+
     }
 
     public static Job createKMeansJob(String inputFile, String outputFile, String searlizedCenters) throws IOException {
         Configuration conf = new Configuration();
         conf.setStrings("centroids", searlizedCenters);
         Job job = Job.getInstance(conf, "K-Means");
-        job.setJarByClass(KMeans.class);
+        job.setJarByClass(KMeansConvergence.class);
         job.setMapperClass(KMeansMapper.class);
         job.setMapOutputKeyClass(Text.class);
         job.setMapOutputValueClass(Text.class);
@@ -136,17 +168,24 @@ public class KMeans {
         return job;
     }
 
+
+
     public static String getSerializedCenters(String filename) throws FileNotFoundException {
         Gson gson = new Gson();
         return gson.toJson(getCenters(filename));
     }
 
-    public static List<Center> getCenters(String filename) throws FileNotFoundException {
-        List<Center> listOfCenters = new ArrayList<>();
-
+    public static String[] seperateCentersFromFile(String filename) throws FileNotFoundException {
         BufferedReader reader = new BufferedReader(new FileReader(filename));
         String file = reader.lines().reduce((total, line) -> total + "\n" + line).get();
         String[] centers = file.replaceAll("\t", ",").split("\n");
+        return centers;
+    }
+
+    public static List<Center> getCenters(String filename) throws FileNotFoundException {
+        List<Center> listOfCenters = new ArrayList<>();
+
+        String[] centers = seperateCentersFromFile(filename);
 
         for(String center : centers) {
             String[] xAndY = center.split(",");
