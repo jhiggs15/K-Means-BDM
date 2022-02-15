@@ -18,7 +18,7 @@ public class CommonFunctionality {
         Configuration conf = new Configuration();
         conf.setStrings("centroids", searlizedCenters);
         Job job = Job.getInstance(conf, "K-Means");
-        job.setJarByClass(KMeans.class);
+        job.setJarByClass(Problem1And2KMeans.class);
         job.setMapperClass(mapperClass);
         job.setMapOutputKeyClass(Text.class);
         job.setMapOutputValueClass(mapperOutputClass);

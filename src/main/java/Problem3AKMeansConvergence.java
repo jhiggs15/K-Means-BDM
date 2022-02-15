@@ -15,7 +15,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-public class KMeansConvergenceAllConverge {
+public class Problem3AKMeansConvergence {
 
     public static class KMeansMapper
             extends Mapper<Object, Text, Text, Text> {
@@ -92,7 +92,8 @@ public class KMeansConvergenceAllConverge {
     // args [1]  : number initial centers (k)
     // args [2]  : output file : format of outfile is newCenter  oldCenter
     //              arg 3 cannot have any periods in path
-    // args [3]  : number of iterations
+    // args [3]  : number of iterations : leave this argument out or put a 1 for a single iteration
+    //              otherwise put the number of iterations
     public static void main(String[] args) throws Exception {
         String centroids = CommonFunctionality.getSerializedCenters(args[1]);
         int numberOfIterations = args.length > 3 ? Integer.parseInt(args[3]) : 1;
@@ -104,7 +105,7 @@ public class KMeansConvergenceAllConverge {
                         args[0],
                         args[2] + r,
                         centroids,
-                        KMeansConvergence.KMeansMapper.class, CoordinateAverage.class, KMeansConvergence.KMeansReducer.class);
+                        KMeansMapper.class, Text.class, KMeansReducer.class);
                 KMeanJob.waitForCompletion(true);
 
             }
@@ -114,20 +115,20 @@ public class KMeansConvergenceAllConverge {
                         args[0],
                         args[2] + r,
                         lastIterationsCenters,
-                        KMeansConvergence.KMeansMapper.class, CoordinateAverage.class, KMeansConvergence.KMeansReducer.class);
+                        KMeansMapper.class, Text.class, KMeansReducer.class);
 
                 KMeanJob.waitForCompletion(true);
-            }
+                if(allHaveChangedSignificantly(args[2], r)) continue;
+                else break;
 
-            if(haveAtLeastOneNotConverged(args[2], r)) continue;
-            else break;
+            }
 
 
 
         }
     }
 
-    private static boolean haveAtLeastOneNotConverged(String outputfile, int r) throws FileNotFoundException {
+    private static boolean allHaveChangedSignificantly(String outputfile, int r) throws FileNotFoundException {
         // the last file we wrote to was outputfile+(r-1)
         // new file we wrote to was outputfile+r
 
@@ -139,16 +140,15 @@ public class KMeansConvergenceAllConverge {
             int oldCenterX = Integer.parseInt(currentCenters[2]);
             int oldCenterY = Integer.parseInt(currentCenters[3]);
 
-            if(Math.abs(newCenterX - oldCenterX) >= 100 ||
-                    Math.abs(newCenterY - oldCenterY) >= 100)
-                return true;
+            if(Math.abs(newCenterX - oldCenterX) < 100 ||
+                    Math.abs(newCenterY - oldCenterY) < 100)
+                return false;
 
         }
 
-        return false;
-
-
+        return true;
 
     }
+
 
 }

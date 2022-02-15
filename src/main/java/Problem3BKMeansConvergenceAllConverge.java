@@ -1,21 +1,13 @@
 import com.google.gson.Gson;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
-import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
-import java.io.BufferedReader;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
-public class KMeansConvergence {
+public class Problem3BKMeansConvergenceAllConverge {
 
     public static class KMeansMapper
             extends Mapper<Object, Text, Text, Text> {
@@ -92,7 +84,8 @@ public class KMeansConvergence {
     // args [1]  : number initial centers (k)
     // args [2]  : output file : format of outfile is newCenter  oldCenter
     //              arg 3 cannot have any periods in path
-    // args [3]  : number of iterations
+    // args [3]  : number of iterations : leave this argument out or put a 1 for a single iteration
+    //              otherwise put the number of iterations
     public static void main(String[] args) throws Exception {
         String centroids = CommonFunctionality.getSerializedCenters(args[1]);
         int numberOfIterations = args.length > 3 ? Integer.parseInt(args[3]) : 1;
@@ -104,7 +97,7 @@ public class KMeansConvergence {
                         args[0],
                         args[2] + r,
                         centroids,
-                        KMeansMapper.class, Text.class, KMeansReducer.class);
+                        Problem3AKMeansConvergence.KMeansMapper.class, CoordinateAverage.class, Problem3AKMeansConvergence.KMeansReducer.class);
                 KMeanJob.waitForCompletion(true);
 
             }
@@ -114,20 +107,20 @@ public class KMeansConvergence {
                         args[0],
                         args[2] + r,
                         lastIterationsCenters,
-                        KMeansMapper.class, Text.class, KMeansReducer.class);
+                        Problem3AKMeansConvergence.KMeansMapper.class, CoordinateAverage.class, Problem3AKMeansConvergence.KMeansReducer.class);
 
                 KMeanJob.waitForCompletion(true);
-                if(allHaveChangedSignificantly(args[2], r)) continue;
-                else break;
-
             }
+
+            if(haveAtLeastOneNotConverged(args[2], r)) continue;
+            else break;
 
 
 
         }
     }
 
-    private static boolean allHaveChangedSignificantly(String outputfile, int r) throws FileNotFoundException {
+    private static boolean haveAtLeastOneNotConverged(String outputfile, int r) throws FileNotFoundException {
         // the last file we wrote to was outputfile+(r-1)
         // new file we wrote to was outputfile+r
 
@@ -139,15 +132,16 @@ public class KMeansConvergence {
             int oldCenterX = Integer.parseInt(currentCenters[2]);
             int oldCenterY = Integer.parseInt(currentCenters[3]);
 
-            if(Math.abs(newCenterX - oldCenterX) < 100 ||
-                    Math.abs(newCenterY - oldCenterY) < 100)
-                return false;
+            if(Math.abs(newCenterX - oldCenterX) >= 100 ||
+                    Math.abs(newCenterY - oldCenterY) >= 100)
+                return true;
 
         }
 
-        return true;
+        return false;
+
+
 
     }
-
 
 }

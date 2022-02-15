@@ -1,22 +1,12 @@
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
-import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import com.google.gson.Gson;
 
-import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
-public class KMeans {
+public class Problem1And2KMeans {
 
     public static class KMeansMapper
             extends Mapper<Object, Text, Text, Text> {
@@ -93,7 +83,8 @@ public class KMeans {
     // args [1]  : number initial centers (k)
     // args [2]  : output file : format of outfile is newCenter  oldCenter
     //              arg 3 cannot have any periods in path
-    // args [3]  : number of iterations
+    // args [3]  : number of iterations : leave this argument out or put a 1 for a single iteration
+    //              otherwise put the number of iterations
     public static void main(String[] args) throws Exception {
         String centroids = CommonFunctionality.getSerializedCenters(args[1]);
         int numberOfIterations = args.length > 3 ? Integer.parseInt(args[3]) : 1;
@@ -112,7 +103,7 @@ public class KMeans {
                         args[0],
                         args[2] + r,
                         CommonFunctionality.getSerializedCenters(args[2] + (r - 1 + "/part-r-00000")),
-                        KMeansConvergence.KMeansMapper.class, Text.class, KMeansConvergence.KMeansReducer.class);
+                        Problem3AKMeansConvergence.KMeansMapper.class, Text.class, Problem3AKMeansConvergence.KMeansReducer.class);
             }
 
             KMeanJob.waitForCompletion(true);

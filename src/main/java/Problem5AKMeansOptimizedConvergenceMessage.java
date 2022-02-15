@@ -1,15 +1,8 @@
 import com.google.gson.Gson;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.BooleanWritable;
-import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.io.WritableComparable;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
-import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -17,9 +10,8 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 
-    public class KMeansOptimizedConvergenceMessage {
+public class Problem5AKMeansOptimizedConvergenceMessage {
 
         public static class KMeansMapper
                 extends Mapper<Object, Text, Text, CoordinateAverage> {
@@ -98,11 +90,12 @@ import java.util.Objects;
         }
 
 
-        // args [0]  : data
-        // args [1]  : number initial centers (k)
-        // args [2]  : output file : format of outfile is newCenter  oldCenter
-        //              arg 3 cannot have any periods in path
-        // args [3]  : number of iterations
+    // args [0]  : data
+    // args [1]  : number initial centers (k)
+    // args [2]  : output file : format of outfile is newCenter  oldCenter
+    //              arg 3 cannot have any periods in path
+    // args [3]  : number of iterations : leave this argument out or put a 1 for a single iteration
+    //              otherwise put the number of iterations
         public static void main(String[] args) throws Exception {
             String centroids = CommonFunctionality.getSerializedCenters(args[1]);
             int numberOfIterations = args.length > 3 ? Integer.parseInt(args[3]) : 1;
@@ -114,7 +107,7 @@ import java.util.Objects;
                             args[0],
                             args[2] + r,
                             centroids,
-                            KMeansMapper.class, CoordinateAverage.class, KMeansReducer.class, KMeansOptimized.KMeansCombiner.class);
+                            KMeansMapper.class, CoordinateAverage.class, KMeansReducer.class, Problem4KMeansOptimized.KMeansCombiner.class);
 
                     KMeanJob.waitForCompletion(true);
                 }
