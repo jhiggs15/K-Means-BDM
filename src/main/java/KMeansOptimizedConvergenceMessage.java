@@ -15,6 +15,7 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -113,17 +114,17 @@ import java.util.Objects;
                             args[0],
                             args[2] + r,
                             centroids,
-                            KMeansOptimized.KMeansMapper.class, CoordinateAverage.class, KMeansOptimized.KMeansReducer.class, KMeansOptimized.KMeansCombiner.class);
+                            KMeansMapper.class, CoordinateAverage.class, KMeansReducer.class, KMeansOptimized.KMeansCombiner.class);
 
                     KMeanJob.waitForCompletion(true);
                 }
                 else {
-                    String lastIterationsCenters = CommonFunctionality.getSerializedCenters(args[2] + (r - 1 + "/part-r-00000"));
+                    String lastIterationsCenters = getSerializedCenters(args[2] + (r - 1 + "/part-r-00000"));
                     KMeanJob = CommonFunctionality.createKMeansJobWithCombiner(
                             args[0],
                             args[2] + r,
                             lastIterationsCenters,
-                            KMeansOptimized.KMeansMapper.class, CoordinateAverage.class, KMeansOptimized.KMeansReducer.class, KMeansOptimized.KMeansCombiner.class);
+                            KMeansMapper.class, CoordinateAverage.class, KMeansReducer.class, KMeansCombiner.class);
 
                     KMeanJob.waitForCompletion(true);
 
@@ -131,6 +132,35 @@ import java.util.Objects;
                 writeConvergence(args[2], r);
 
             }
+        }
+
+        public static String getSerializedCenters(String filename) throws FileNotFoundException {
+            Gson gson = new Gson();
+            return gson.toJson(getCenters(filename));
+        }
+
+        public static List<Center> getCenters(String filename) throws FileNotFoundException {
+            List<Center> listOfCenters = new ArrayList<>();
+
+            String[] centers = seperateCentersFromFile(filename);
+
+
+            for(String center : centers) {
+                String[] xAndY = center.split(",");
+                int x = Integer.parseInt(xAndY[0]), y = Integer.parseInt(xAndY[1]);
+                listOfCenters.add(new Center(x, y));
+            }
+
+            return listOfCenters;
+
+        }
+
+        public static String[] seperateCentersFromFile(String filename) throws FileNotFoundException {
+            BufferedReader reader = new BufferedReader(new FileReader(filename));
+            String file = reader.lines().reduce((total, line) -> total + "\n" + line).get();
+            String[] centers = file.replaceAll("\t", ",").split("\n");
+            centers = Arrays.copyOfRange(centers, 1, centers.length);
+            return centers;
         }
 
         private static void writeConvergence(String outputfile, int r) throws IOException {
@@ -166,28 +196,6 @@ import java.util.Objects;
                 return total + currentLine[0] + "," + currentLine[1] + "\n";
             });
             file = lineToWrite + "\n" + file;
-            Files.write( Paths.get(outputfile + r + "/result.txt"), file.getBytes());
-        }
-
-        public static Job createKMeansJob(String inputFile, String outputFile, String searlizedCenters) throws IOException {
-            Configuration conf = new Configuration();
-            conf.setStrings("centroids", searlizedCenters);
-            Job job = Job.getInstance(conf, "K-Means");
-            job.setJarByClass(KMeansOptimizedConvergenceMessage.class);
-            job.setMapperClass(KMeansMapper.class);
-            job.setMapOutputKeyClass(Text.class);
-            job.setMapOutputValueClass(CoordinateAverage.class);
-
-            job.setCombinerClass(KMeansCombiner.class);
-
-            job.setReducerClass(KMeansReducer.class);
-            job.setOutputKeyClass(Text.class);
-            job.setOutputValueClass(Text.class);
-
-
-            FileInputFormat.addInputPath(job, new Path(inputFile));
-            FileOutputFormat.setOutputPath(job, new Path(outputFile));
-
-            return job;
+            Files.write( Paths.get(outputfile + r + "/part-r-00000"), file.getBytes());
         }
     }
