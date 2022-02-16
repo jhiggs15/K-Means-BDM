@@ -97,6 +97,8 @@ public class Problem5AKMeansOptimizedConvergenceMessage {
     // args [3]  : number of iterations : leave this argument out or put a 1 for a single iteration
     //              otherwise put the number of iterations
         public static void main(String[] args) throws Exception {
+            long timeNow = System.currentTimeMillis();
+
             String centroids = CommonFunctionality.getSerializedCenters(args[1]);
             int numberOfIterations = args.length > 3 ? Integer.parseInt(args[3]) : 1;
 
@@ -107,7 +109,7 @@ public class Problem5AKMeansOptimizedConvergenceMessage {
                             args[0],
                             args[2] + r,
                             centroids,
-                            KMeansMapper.class, CoordinateAverage.class, KMeansReducer.class, Problem4KMeansOptimized.KMeansCombiner.class);
+                            KMeansMapper.class, CoordinateAverage.class, KMeansReducer.class, KMeansCombiner.class);
 
                     KMeanJob.waitForCompletion(true);
                 }
@@ -125,6 +127,11 @@ public class Problem5AKMeansOptimizedConvergenceMessage {
                 writeConvergence(args[2], r);
 
             }
+
+            long timeFinish = System.currentTimeMillis();
+            double seconds = (timeFinish - timeNow) / 1000.0;
+            System.out.println(seconds + " seconds");
+
         }
 
         public static String getSerializedCenters(String filename) throws FileNotFoundException {

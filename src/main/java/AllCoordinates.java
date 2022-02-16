@@ -5,81 +5,48 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
 public class AllCoordinates implements WritableComparable<AllCoordinates> {
     private CoordinateAverage coordinateAverage;
-    private ArrayWritable pointsToPrint;
+    private Text pointsToPrint;
 
 
     //Default Constructor
     public AllCoordinates()
     {
         this.coordinateAverage = new CoordinateAverage();
-        this.pointsToPrint = new ArrayWritable(Text.class);
-        pointsToPrint.set(new Writable[0]);
+        this.pointsToPrint = new Text("");
     }
 
     public AllCoordinates(int x, int y)
     {
         this.coordinateAverage = new CoordinateAverage();
-        this.pointsToPrint = new ArrayWritable(Text.class);
-        pointsToPrint.set(new Writable[0]);
-        update(x, y);
+        this.pointsToPrint = new Text("(" + x + "," + y + ")");
+        coordinateAverage.update(x, y);
+
         // TODO add array writable
     }
 
     public void merge(AllCoordinates otherCoordinate) {
         coordinateAverage.merge(otherCoordinate.coordinateAverage);
-        Writable[] mergedList = mergeTwoArrays(pointsToPrint.get(), otherCoordinate.pointsToPrint.get());
-        this.pointsToPrint.set(mergedList);
+        if(pointsToPrint.toString().equals("")) pointsToPrint.set(otherCoordinate.pointsToPrint);
+        else this.pointsToPrint.set(pointsToPrint.toString() + " " + otherCoordinate.pointsToPrint.toString());
 
     }
 
-    private Writable[] mergeTwoArrays(Writable[] array1, Writable[] array2) {
-        Writable[] mergedList = new Writable[array1.length + array2.length];
+    public Text getCoordinates() {
 
-        for (int currentListItems = 0; currentListItems < array1.length; currentListItems++) {
-            mergedList[currentListItems] = array1[currentListItems];
-        }
-        for (int otherListItems = 0; otherListItems < array2.length; otherListItems++) {
-            mergedList[otherListItems + array1.length] = array2[otherListItems];
-        }
-
-        return mergedList;
+        return pointsToPrint;
     }
 
-    public void update(int x, int y) {
-        coordinateAverage.update(x, y);
-        Writable[] newValue = new Writable[1];
-        newValue[0] = new Text("(" + x + "," + y + ")");
-
-        Writable[] currentList = pointsToPrint.get();
-        currentList = currentList != null ? currentList : new Writable[0];
-        this.pointsToPrint.set(mergeTwoArrays(currentList, newValue));
-
-    }
-
-    public String getCoordinates() {
-        Writable[] theseCoordiantes = pointsToPrint.get();
-        StringBuilder stringBuilder = new StringBuilder();
-        int index = 0;
-        int sizeMinus1 = theseCoordiantes.length - 1;
-        for (Writable coordinate : theseCoordiantes) {
-            if(index == sizeMinus1) stringBuilder.append(coordinate.toString() + "\n");
-            else stringBuilder.append(coordinate.toString() + " ");
-            index++;
-        }
-
-        return stringBuilder.toString();
-    }
-
-    public int getAverageX() {
+    public long getAverageX() {
         return coordinateAverage.getAverageX();
     }
 
-    public int getAverageY() {
+    public long getAverageY() {
         return coordinateAverage.getAverageY();
     }
 

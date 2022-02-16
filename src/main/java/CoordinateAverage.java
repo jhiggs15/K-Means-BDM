@@ -1,5 +1,5 @@
 import org.apache.hadoop.io.BooleanWritable;
-import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.WritableComparable;
 
 import java.io.DataInput;
@@ -9,27 +9,27 @@ import java.util.Objects;
 
 // adapted from http://hadooptutorial.info/creating-custom-hadoop-writable-data-type/
 public class CoordinateAverage implements WritableComparable<CoordinateAverage> {
-    private IntWritable sumOfX;
-    private IntWritable sumOfY;
-    private IntWritable numberOfPoints;
+    private LongWritable sumOfX;
+    private LongWritable sumOfY;
+    private LongWritable numberOfPoints;
     private BooleanWritable isOnlyValue;
 
 
     //Default Constructor
     public CoordinateAverage()
     {
-        this.sumOfX = new IntWritable();
-        this.sumOfY = new IntWritable();
-        this.numberOfPoints = new IntWritable();
+        this.sumOfX = new LongWritable();
+        this.sumOfY = new LongWritable();
+        this.numberOfPoints = new LongWritable();
         this.isOnlyValue = new BooleanWritable();
         this.isOnlyValue.set(true);
     }
 
     public CoordinateAverage(int x, int y)
     {
-        this.sumOfX = new IntWritable();
-        this.sumOfY = new IntWritable();
-        this.numberOfPoints = new IntWritable();
+        this.sumOfX = new LongWritable();
+        this.sumOfY = new LongWritable();
+        this.numberOfPoints = new LongWritable();
         this.isOnlyValue = new BooleanWritable();
         update(x, y);
     }
@@ -49,11 +49,11 @@ public class CoordinateAverage implements WritableComparable<CoordinateAverage> 
         numberOfPoints.set(numberOfPoints.get() + 1);
     }
 
-    public int getAverageX() {
+    public long getAverageX() {
         return sumOfX.get() / numberOfPoints.get();
     }
 
-    public int getAverageY() {
+    public long getAverageY() {
         return sumOfY.get() / numberOfPoints.get();
     }
 

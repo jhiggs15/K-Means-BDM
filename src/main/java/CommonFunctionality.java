@@ -14,7 +14,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class CommonFunctionality {
-    public static Job createKMeansJob(String inputFile, String outputFile, String searlizedCenters, Class mapperClass,  Class mapperOutputClass, Class reducerClass) throws IOException {
+
+    public static Job createKMeansMapperOnlyJob(String inputFile, String outputFile, String searlizedCenters, Class mapperClass,  Class mapperOutputClass) throws IOException {
         Configuration conf = new Configuration();
         conf.setStrings("centroids", searlizedCenters);
         Job job = Job.getInstance(conf, "K-Means");
@@ -23,12 +24,21 @@ public class CommonFunctionality {
         job.setMapOutputKeyClass(Text.class);
         job.setMapOutputValueClass(mapperOutputClass);
 
+        FileInputFormat.addInputPath(job, new Path(inputFile));
+        FileOutputFormat.setOutputPath(job, new Path(outputFile));
+
+        return job;
+    }
+
+    public static Job createKMeansJob(String inputFile, String outputFile, String searlizedCenters, Class mapperClass,  Class mapperOutputClass, Class reducerClass) throws IOException {
+        Job job = createKMeansMapperOnlyJob(inputFile, outputFile, searlizedCenters, mapperClass, mapperOutputClass);
+        job.setMapperClass(mapperClass);
+        job.setMapOutputKeyClass(Text.class);
+        job.setMapOutputValueClass(mapperOutputClass);
+
         job.setReducerClass(reducerClass);
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
-
-        FileInputFormat.addInputPath(job, new Path(inputFile));
-        FileOutputFormat.setOutputPath(job, new Path(outputFile));
 
         return job;
     }

@@ -55,7 +55,7 @@ public class Problem1And2KMeans {
         @Override
         protected void reduce(Text key, Iterable<Text> values, Reducer<Text, Text, Text, Text>.Context context) throws IOException, InterruptedException {
             // find new center for cluster, new center is average all xs w/ average of all ys
-            int sumX, sumY, count;
+            long sumX, sumY, count;
             sumX = sumY = count = 0;
             for(Text coordinate : values) {
                 String[] xAndY = coordinate.toString().split(",");
@@ -86,6 +86,8 @@ public class Problem1And2KMeans {
     // args [3]  : number of iterations : leave this argument out or put a 1 for a single iteration
     //              otherwise put the number of iterations
     public static void main(String[] args) throws Exception {
+        long timeNow = System.currentTimeMillis();
+
         String centroids = CommonFunctionality.getSerializedCenters(args[1]);
         int numberOfIterations = args.length > 3 ? Integer.parseInt(args[3]) : 1;
 
@@ -108,6 +110,9 @@ public class Problem1And2KMeans {
 
             KMeanJob.waitForCompletion(true);
         }
+        long timeFinish = System.currentTimeMillis();
+        double seconds = (timeFinish - timeNow) / 1000.0;
+        System.out.println(seconds + " seconds");
     }
 
 

@@ -56,7 +56,7 @@ public class Problem3BKMeansConvergenceAllConverge {
         @Override
         protected void reduce(Text key, Iterable<Text> values, Reducer<Text, Text, Text, Text>.Context context) throws IOException, InterruptedException {
             // find new center for cluster, new center is average all xs w/ average of all ys
-            int sumX, sumY, count;
+            long sumX, sumY, count;
             sumX = sumY = count = 0;
             for(Text coordinate : values) {
                 String[] xAndY = coordinate.toString().split(",");
@@ -87,6 +87,8 @@ public class Problem3BKMeansConvergenceAllConverge {
     // args [3]  : number of iterations : leave this argument out or put a 1 for a single iteration
     //              otherwise put the number of iterations
     public static void main(String[] args) throws Exception {
+        long timeNow = System.currentTimeMillis();
+
         String centroids = CommonFunctionality.getSerializedCenters(args[1]);
         int numberOfIterations = args.length > 3 ? Integer.parseInt(args[3]) : 1;
 
@@ -97,7 +99,7 @@ public class Problem3BKMeansConvergenceAllConverge {
                         args[0],
                         args[2] + r,
                         centroids,
-                        Problem3AKMeansConvergence.KMeansMapper.class, CoordinateAverage.class, Problem3AKMeansConvergence.KMeansReducer.class);
+                        KMeansMapper.class, Text.class, KMeansReducer.class);
                 KMeanJob.waitForCompletion(true);
 
             }
@@ -107,17 +109,17 @@ public class Problem3BKMeansConvergenceAllConverge {
                         args[0],
                         args[2] + r,
                         lastIterationsCenters,
-                        Problem3AKMeansConvergence.KMeansMapper.class, CoordinateAverage.class, Problem3AKMeansConvergence.KMeansReducer.class);
+                        KMeansMapper.class, Text.class, KMeansReducer.class);
 
                 KMeanJob.waitForCompletion(true);
             }
 
             if(haveAtLeastOneNotConverged(args[2], r)) continue;
             else break;
-
-
-
         }
+        long timeFinish = System.currentTimeMillis();
+        double seconds = (timeFinish - timeNow) / 1000.0;
+        System.out.println(seconds + " seconds");
     }
 
     private static boolean haveAtLeastOneNotConverged(String outputfile, int r) throws FileNotFoundException {

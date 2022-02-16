@@ -89,20 +89,16 @@ public class Problem5BKMeansOptimizedFinalClusterCenters {
     }
 
     public static class KMeansWithPointsMapper
-            extends Mapper<Object, Text, Text, AllCoordinates> {
+            extends Mapper<Object, Text, Text, Text> {
 
         private Center[] centroids;
 
         @Override
-        protected void setup(Mapper<Object, Text, Text, AllCoordinates>.Context context) throws IOException, InterruptedException {
+        protected void setup(Mapper<Object, Text, Text, Text>.Context context) throws IOException, InterruptedException {
             super.setup(context);
             String centroidGson = context.getConfiguration().get("centroids");
             Gson gson = new Gson();
             centroids = gson.fromJson(centroidGson, Center[].class);
-            for(Center center : centroids) {
-                // writes out each centroid with dummy values, so the centroids don't disappear
-                context.write(new Text(center.toString()), new AllCoordinates());
-            }
         }
 
         public void map(Object key, Text value, Context context
@@ -122,47 +118,11 @@ public class Problem5BKMeansOptimizedFinalClusterCenters {
                 }
             }
 
-            context.write(new Text(closestCenter.toString()), new AllCoordinates(x, y));
+            context.write(new Text(closestCenter.toString()), new Text(x + "," + y + " "));
 
         }
-
-
     }
 
-    public static class KMeansWithPointsCombiner
-            extends Reducer<Text,AllCoordinates,Text,AllCoordinates> {
-
-        @Override
-        protected void reduce(Text key, Iterable<AllCoordinates> values, Reducer<Text, AllCoordinates, Text, AllCoordinates>.Context context) throws IOException, InterruptedException {
-            AllCoordinates total = new AllCoordinates();
-            for(AllCoordinates coordinates : values) {
-                if(!coordinates.getIsOnlyValue())
-                    total.merge(coordinates);
-            }
-            context.write(key, total);
-        }
-
-
-    }
-
-    public static class KMeansReducerWithPoints
-            extends Reducer<Text,AllCoordinates,Text,Text> {
-        @Override
-        protected void reduce(Text key, Iterable<AllCoordinates> values, Reducer<Text, AllCoordinates, Text, Text>.Context context) throws IOException, InterruptedException {
-            AllCoordinates total = new AllCoordinates();
-            Text newCenter;
-            for(AllCoordinates coordinateAverage : values) {
-                if(!coordinateAverage.getIsOnlyValue())
-                    total.merge(coordinateAverage);
-            }
-            if(total.getIsOnlyValue()) newCenter = key;
-            else newCenter = new Text(total.getAverageX() + "," + total.getAverageY());
-
-            context.write(newCenter, new Text(total.getCoordinates()));
-
-        }
-
-    }
 
 
     // args [0]  : data
@@ -172,22 +132,15 @@ public class Problem5BKMeansOptimizedFinalClusterCenters {
     // args [3]  : number of iterations : leave this argument out or put a 1 for a single iteration
     //              otherwise put the number of iterations
     public static void main(String[] args) throws Exception {
+        long timeNow = System.currentTimeMillis();
+
         String centroids = CommonFunctionality.getSerializedCenters(args[1]);
         int numberOfIterations = args.length > 3 ? Integer.parseInt(args[3]) : 1;
 
         for (int r = 1; r <= numberOfIterations; r++) {
             Job KMeanJob;
-            if(r == numberOfIterations) {
-                String lastIterationsCenters = CommonFunctionality.getSerializedCenters(r == 1 ? args[1] : args[2] + (r - 1 + "/part-r-00000"));
-                KMeanJob = CommonFunctionality.createKMeansJobWithCombiner(
-                        args[0],
-                        args[2] + r,
-                        lastIterationsCenters,
-                        KMeansWithPointsMapper.class, AllCoordinates.class, KMeansReducerWithPoints.class, KMeansWithPointsCombiner.class);
 
-                KMeanJob.waitForCompletion(true);
-            }
-            else if(r == 1) {
+            if(r == 1) {
                 KMeanJob = CommonFunctionality.createKMeansJobWithCombiner(
                         args[0],
                         args[2] + r,
@@ -209,5 +162,19 @@ public class Problem5BKMeansOptimizedFinalClusterCenters {
             }
 
         }
+
+        String lastIterationsCenters = CommonFunctionality.getSerializedCenters(args[2] + (numberOfIterations + "/part-r-00000"));
+        Job KMeanJob = CommonFunctionality.createKMeansMapperOnlyJob(
+                args[0],
+                args[2] + "Final",
+                lastIterationsCenters,
+                KMeansWithPointsMapper.class, Text.class);
+
+        KMeanJob.waitForCompletion(true);
+
+        long timeFinish = System.currentTimeMillis();
+        double seconds = (timeFinish - timeNow) / 1000.0;
+        System.out.println(seconds + " seconds");
     }
+
 }

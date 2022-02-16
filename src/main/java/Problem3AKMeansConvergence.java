@@ -64,7 +64,7 @@ public class Problem3AKMeansConvergence {
         @Override
         protected void reduce(Text key, Iterable<Text> values, Reducer<Text, Text, Text, Text>.Context context) throws IOException, InterruptedException {
             // find new center for cluster, new center is average all xs w/ average of all ys
-            int sumX, sumY, count;
+            long sumX, sumY, count;
             sumX = sumY = count = 0;
             for(Text coordinate : values) {
                 String[] xAndY = coordinate.toString().split(",");
@@ -95,6 +95,8 @@ public class Problem3AKMeansConvergence {
     // args [3]  : number of iterations : leave this argument out or put a 1 for a single iteration
     //              otherwise put the number of iterations
     public static void main(String[] args) throws Exception {
+        long timeNow = System.currentTimeMillis();
+
         String centroids = CommonFunctionality.getSerializedCenters(args[1]);
         int numberOfIterations = args.length > 3 ? Integer.parseInt(args[3]) : 1;
 
@@ -126,6 +128,10 @@ public class Problem3AKMeansConvergence {
 
 
         }
+
+        long timeFinish = System.currentTimeMillis();
+        double seconds = (timeFinish - timeNow) / 1000.0;
+        System.out.println(seconds + " seconds");
     }
 
     private static boolean allHaveChangedSignificantly(String outputfile, int r) throws FileNotFoundException {
@@ -140,7 +146,7 @@ public class Problem3AKMeansConvergence {
             int oldCenterX = Integer.parseInt(currentCenters[2]);
             int oldCenterY = Integer.parseInt(currentCenters[3]);
 
-            if(Math.abs(newCenterX - oldCenterX) < 100 ||
+            if(Math.abs(newCenterX - oldCenterX) < 100 &&
                     Math.abs(newCenterY - oldCenterY) < 100)
                 return false;
 
